@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM Prime Generator</title>
+    <style>
+        body       { font-family: system-ui, sans-serif; max-width: 640px;
+                     margin: 48px auto; padding: 0 24px; color: #1a1a1a; }
+        h1         { font-size: 1.4rem; margin-bottom: 1.2rem; }
+        label      { display: flex; align-items: center; gap: 10px; }
+        input[type=number] { width: 140px; padding: 4px 8px; font-size: 1rem; }
+        .controls  { display: flex; gap: 10px; margin: 16px 0; }
+        button     { padding: 6px 18px; font-size: 0.95rem; cursor: pointer; }
+        button:disabled { opacity: 0.4; cursor: default; }
+        progress   { width: 100%; height: 18px; margin: 4px 0; }
+        #status    { font-size: 0.9rem; color: #555; min-height: 1.2em; }
+        #output    { margin-top: 20px; padding: 12px; border: 1px solid #ccc;
+                     border-radius: 4px; font: 13px/1.5 monospace;
+                     max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>WASM Prime Generator</h1>
+
+    <label>
+        Upper bound:
+        <input type="number" id="limit" value="2000000" min="2" step="1">
+    </label>
+
+    <div class="controls">
+        <button id="btn-start">Start</button>
+        <button id="btn-cancel" disabled>Cancel</button>
+    </div>
+
+    <progress id="progress" value="0" max="100"></progress>
+    <div id="status">Ready.</div>
+    <div id="output"></div>
+
+    <script type="module">
+        import { PrimeService } from './prime_service.js';
+
+        const service = new PrimeService();
+        await service.initialize();
+
+        const btnStart  = document.getElementById('btn-start');
+        const btnCancel = document.getElementById('btn-cancel');
+        const limitEl   = document.getElementById('limit');
+        const progress  = document.getElementById('progress');
+        const status    = document.getElementById('status');
+        const output    = document.getElementById('output');
+
+        const setRunning = (running) => {
+            btnStart.disabled  = running;
+            btnCancel.disabled = !running;
+        };
+
+        btnStart.addEventListener('click', () => {
+            const limit = parseInt(limitEl.value, 10);
+            if (!Number.isFinite(limit) || limit < 2) {
+                status.textContent = 'Please enter a number ≥ 2.';
+                return;
+            }
+
+            output.textContent  = '';
+            progress.value      = 0;
+            status.textContent  = 'Computing…';
+            setRunning(true);
+
+            const t0 = performance.now();
+
+            service.startComputation(
+                limit,
+                (percent) => {
+                    progress.value     = percent;
+                    status.textContent = `Progress: ${percent}%`;
+                },
+                (primes) => {
+                    const ms = (performance.now() - t0).toFixed(0);
+                    progress.value = 100;
+                    status.textContent = `Done in ${ms} ms`;
+
+                    const first = primes.slice(0, 20).join(', ');
+                    const last  = primes.slice(-10).join(', ');
+                    output.textContent =
+                        `Found ${primes.length.toLocaleString()} primes below ${limit.toLocaleString()}.\n\n` +
+                        `First 20 : ${first}\nLast  10 : ${last}`;
+
+                    setRunning(false);
+                }
+            );
+        });
+
+        btnCancel.addEventListener('click', () => {
+            service.cancel();
+            status.textContent = 'Cancelled.';
+            setRunning(false);
+        });
+    </script>
+</body>
+</html>
