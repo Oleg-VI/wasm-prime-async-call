@@ -1,0 +1,6 @@
+# Build folders
+build/
+
+# Emscripten generated files
+web/prime_module.js
+web/prime_module.wasm
